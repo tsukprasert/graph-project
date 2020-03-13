@@ -1,0 +1,155 @@
+import random
+from Graph import *
+from Queue import Queue
+
+
+class ArtistConnections:
+
+    def __init__(self):
+        self.vertList = {}
+        self.numVertices = 0
+
+    """
+    Load the artist connections graph based on a given song database
+    Add the edges based on the last column of the collaborative artists 
+
+    """
+
+    def load_graph(self, songLibrary):
+        songfile = open(songLibrary, 'r')
+        for i in songfile.readlines():
+            tokens = i.split(',')
+            artist = tokens[2]
+            coartists = tokens[5]
+            song = tokens[1]
+            coartists = coartists[:len(coartists) - 1].split(';')  # remove \n
+
+            if artist not in self.vertList:
+                self.vertList[artist] = Vertex(artist)  # build new vertex of the artist
+                self.numVertices += 1
+
+                self.vertList[artist].addsongs(song)  # append song to the list
+            else:
+                if song not in self.vertList[artist].songs:
+                    self.vertList[artist].addsongs(song)  # append song to the list
+
+            for coart in coartists:
+                if coart not in self.vertList:  # build new vertex of the co-artists
+                    self.vertList[coart] = Vertex(coart)
+                    self.numVertices += 1
+                if coart not in self.vertList[artist].coArtists:  # check whether already collaborated
+                    self.vertList[artist].addNeighbor(coart, 1)  # not yet collaborated, add to neightbor
+                    self.vertList[coart].addNeighbor(artist, 1)
+
+                else:
+                    self.vertList[artist].coArtists[coart] += 1  # collaborated, increment the weight
+                    self.vertList[coart].coArtists[artist] += 1
+
+        return self.numVertices
+
+    """
+    Return song libary information
+    """
+
+    def graph_info(self):
+        return "Vertex Size: " + str(self.numVertices)
+
+    """
+    Search the information of an artist based on the artist name
+    Return a tuple (the number of songs he/she wrote, the collaborative artist list)
+
+    """
+
+    def search_artist(self, artist_name):
+        numSongs = 0
+        artistLst = []
+        #
+        # Write your code here
+        #
+        for i in self.vertList.keys():
+            if i == artist_name:  # if found the artist
+
+                numSongs = len(self.vertList[artist_name].songs)  # number of songs he/she has
+                artist = self.vertList[artist_name].coArtists.keys()  # list of co-artists
+                for k in artist:
+                    artistLst.append(k)
+
+        return numSongs, artistLst
+
+    """
+    Return a list of two-hop neighbors of a given artist
+    """
+
+    def find_new_friends(self, artist_name):  # fix this
+        two_hop_friends = []
+        i = self.vertList[artist_name].coArtists
+        for j in i:  # iterate through co-artists
+            for k in self.vertList[j].coArtists:  # iterate through co-artists of a co-artist
+                if k not in i and k != artist_name:
+                    if k not in two_hop_friends:
+                        two_hop_friends.append(k)
+        return two_hop_friends
+
+    """
+    Search the information of an artist based on the artist name
+
+    """
+
+    def recommend_new_collaborator(self, artist_name):
+        artist = ""
+        numSongs = 0
+        weight = [0]
+        art = []
+        twohops = self.find_new_friends(artist_name)
+        k = self.vertList[artist_name].coArtists
+        for i in twohops:  # iterate in twohops
+            for j in self.vertList[artist_name].coArtists:  # iterate through co-artists of the artist
+                if i in self.vertList[j].coArtists:  # if two hops also in the list of co-artist
+                    weight[len(weight) - 1] += self.vertList[i].getWeight(j)  # adds up the weight
+            art.append(i)
+            weight.append(0)
+
+        numSongs = max(weight)  # find max weight
+        artist = art[weight.index(numSongs)]  # find the artist with the max weight
+        return numSongs, artist
+
+    """
+    Search the information of an artist based on the artist name
+
+    """
+
+    def shortest_path(self, artist_name):
+        path = {}
+        level = 0
+        vertQueue = Queue()
+        path[artist_name] = level  # for the first level
+        vertQueue.enqueue(artist_name)
+        last = vertQueue.items[0]  # keeping track of the last element
+        while (vertQueue.size() > 0):
+            currentVert = vertQueue.dequeue()
+
+            path[currentVert] = level  # add the neighbor and its level to the dictionary
+            if currentVert == last:
+                level += 1  # incrementing the level
+
+            for nbr in self.vertList[currentVert].coArtists:  # traverse through the neighbor -- co-artist
+                if nbr not in path.keys() and nbr not in vertQueue.items:
+                    vertQueue.enqueue(nbr)
+
+            if vertQueue.items and currentVert == last:
+                last = vertQueue.items[0]  # updating the last value of the level
+
+        return path
+
+
+# WRITE YOUR OWN TEST UNDER THAT IF YOU NEED
+if __name__ == '__main__':
+    artistGraph = ArtistConnections()
+    artistGraph.load_graph("TenKsongs_proj2.csv")
+    print(artistGraph.graph_info())
+    print(artistGraph.search_artist("Jack Orsen feat. Fumanschu_ Justus"))
+    print(artistGraph.find_new_friends("Owsley"))
+    print(artistGraph.recommend_new_collaborator("Green Day"))
+    print(artistGraph.shortest_path("Santana"))
+
+    # ArtistConnections.generate_data("TenKsongs_proj2.csv")
